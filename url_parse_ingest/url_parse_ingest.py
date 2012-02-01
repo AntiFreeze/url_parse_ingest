@@ -9,7 +9,7 @@ import simplejson as json
 
 class jsonDocument():
 
-    def __init__(self, url, handlers=None):
+    def __init__(self, url, handlers=settings.MASTER_HANDLER):
         self._url = url
 
         # The bits we care about
@@ -17,7 +17,7 @@ class jsonDocument():
         self._title = None
         self._body = None
         self._ingested = None
-        self._handlers = handlers if handlers else registeredHandlers()
+        self._handlers = handlers
 
         # HTTP information
         self._content_length = None
