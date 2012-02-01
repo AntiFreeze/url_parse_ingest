@@ -2,6 +2,24 @@ import sys
 import re, json
 import urllib2
 
+class registeredHandlers():
+    def __init__(self):
+        self._handlers = {}
+
+    def isHandler(self, type):
+        return True if type in self._hanlders else False
+
+    def addHandler(self, type, func):
+        if not self.isHandler(type):
+            self._hanlders.update({type:func})
+            return True
+        return False
+
+    def callHandler(self, type, data):
+        if self.isHandler(type):
+            return self._handlers[type](data)
+        return {}
+
 class jsonDocument():
 
     def __init__(self, url):
@@ -49,7 +67,7 @@ class jsonDocument():
                 self._content_length = headers['content-length']
                 self._filetype = content_type[0]
                 self._charset = content_type[1]
-                self._debugPrint("_getHeader(%s): filetype: %s, charset: %s, length: %s", self._filetype, self._charset, self._content_length)
+                self._debugPrint("_getHeader(%s): filetype: %s, charset: %s, length: %s" % (self._url, self._filetype, self._charset, self._content_length))
             except:
                 self._failed = True
                 self._debugPrint("_getHeader() failed with unexpected error %s" % sys.exc_info()[0])
@@ -64,14 +82,13 @@ class jsonDocument():
     def fetch(self):
         self._getHeaders()
         if not self._response:
-            # yuh-oh
             return {}
 
         if self._filetype == "text/html":
             pass
-        elif self._filetype == "text/pdf":
+        elif self._filetype == "applications/pdf":
             pass
-        elif self._filetype == "text/docx":
+        elif self._filetype == "applications/docx":
             pass
 
         return {}
