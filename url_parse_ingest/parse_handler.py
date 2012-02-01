@@ -11,7 +11,7 @@ class registeredHandlers():
     def __str__(self):
         message = "registeredHandlers(%d):" % len(self._handlers)
         for handler in self._handlers:
-            message = message + handler
+            message = message + " " + handler
         return message
 
     def __repr__(self):
