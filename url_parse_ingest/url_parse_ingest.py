@@ -5,7 +5,9 @@
 import sys
 import urllib2
 import settings
+import tempfile
 import simplejson as json
+import parse_handler
 
 class jsonDocument():
 
@@ -22,6 +24,7 @@ class jsonDocument():
         # HTTP information
         self._content_length = None
         self._response = None
+        self._data = None
 
         # Post-parsing information
         self._parsed_length = None
@@ -45,7 +48,7 @@ class jsonDocument():
             print >> sys.stderr, message
 
     def _openURL(self):
-        if not self._response:
+        if not self._failed and not self._response:
             try:
                 self._response = urllib2.urlopen(self._url)
                 status = self._response.getcode()
@@ -59,9 +62,22 @@ class jsonDocument():
 
     def _loadHeaders(self):
         self._openURL()
-        if not self._failed:
+        if not self._failed and self._response:
             headers = self._response.info()
             self._filetype = headers.get('content-type','unknown').split(';')[0]
+
+    def _loadData(self):
+        self._openURL()
+        if not self._failed and self._response:
+            try:
+                self._data = tempfile.SpooledTemporaryFile(max_size=1048576)
+                self._data.write(self._response.read())
+                self._data.seek(0)
+                self._ingested = True
+                self._response.close()
+            except:
+                self.failed = True
+                self._debugPrint("_loadData() unknown failure %s"  % sys.exc_info()[0])
 
     def setDebug(self, debug=True):
         self._DEBUG = debug
@@ -70,9 +86,11 @@ class jsonDocument():
 
     def fetch(self):
         self._loadHeaders()
-        if self._failed:
+        self._loadData()
+
+        if self._failed or not self._ingested:
             return json.dumps(settings.EMPTY_DATA)
 
-        response = self._handlers.callHandler(self._filetype, self._response)
+        response = self._handlers.callHandler(self._filetype, self._data)
 
         return json.dumps(response)
