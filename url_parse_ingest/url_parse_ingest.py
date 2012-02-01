@@ -1,6 +1,7 @@
 import sys
 import re, json
 import urllib2
+import settings
 
 class registeredHandlers():
     def __init__(self):
@@ -19,14 +20,14 @@ class registeredHandlers():
         return message + ">"
 
     def _unknown_handler(self, data):
-        return {'title':'unknown', 'body':'unknown', 'content-length':'unknown'}
+        return settings.EMPTY_DATA
 
     def isHandler(self, type):
-        return True if type in self._hanlders else False
+        return True if type in self._handlers else False
 
     def addHandler(self, type, func):
         if not self.isHandler(type):
-            self._hanlders.update({type:func})
+            self._handlers.update({type:func})
             return True
         return False
 
@@ -37,7 +38,7 @@ class registeredHandlers():
 
 class jsonDocument():
 
-    def __init__(self, url, handlers):
+    def __init__(self, url, handlers=None):
         self._url = url
 
         # The bits we care about
@@ -45,11 +46,10 @@ class jsonDocument():
         self._title = None
         self._body = None
         self._ingested = None
-        self._handlers = handlers
+        self._handlers = handlers if handlers else registeredHandlers()
 
         # HTTP information
         self._content_length = None
-        self._content_charset = None
         self._response = None
 
         # Post-parsing information
@@ -77,7 +77,8 @@ class jsonDocument():
         if not self._response:
             try:
                 self._response = urllib2.urlopen(self._url)
-                if self._response.status != 200:
+                status = self._response.getcode()
+                if status != 200:
                     # do the right thing
                     # account for redirects and try not to loop
                     pass
@@ -85,18 +86,11 @@ class jsonDocument():
                 self._failed = True
                 self._debugPrint("_openURL() failed with unexpected error %s" % sys.exc_info()[0])
 
-    def _getHeaders(self):
-        headers = []
+    def _loadHeaders(self):
         self._openURL()
-        if not self._response:
+        if not self._failed:
             headers = self._response.info()
-            content_type = headers.get('content-type','unknown;unknown').split(';')
-            self._content_length = headers.get('content-length',0)
-            self._filetype = content_type[0]
-            self._charset = content_type[1]
-            self._debugPrint("_getHeader(%s): filetype: %s, charset: %s, length: %s" % (self._url, self._filetype, self._charset, self._content_length))
-
-        return headers
+            self._filetype = headers.get('content-type','unknown').split(';')[0]
 
     def setDebug(self, debug=True):
         self._DEBUG = debug
@@ -104,10 +98,10 @@ class jsonDocument():
         print >> sys.stderr, "Debugging:", message
 
     def fetch(self):
-        self._getHeaders()
-        if not self._response:
+        self._loadHeaders()
+        if self._failed:
             return {}
 
-        response = self._handlers.callHandler(self._filetype)
+        response = self._handlers.callHandler(self._filetype, self._response)
 
         return response
