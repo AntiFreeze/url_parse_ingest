@@ -1,40 +1,11 @@
+#
+# (c) 2012 YourTrove, Inc. All Rights Reserved.
+#
+
 import sys
-import re, json
 import urllib2
 import settings
-
-class registeredHandlers():
-    def __init__(self):
-        self._handlers = { 'unknown':self._unknown_handler }
-
-    def __str__(self):
-        message = "registeredHandlers(%d):" % len(self._handlers)
-        for handler in self._handlers:
-            message = message + handler
-        return message
-
-    def __repr__(self):
-        message = "<url_parse_ingest.registeredHandlers(%d):" % len(self._handlers)
-        for handler in self._handlers:
-            message = message + " " + handler
-        return message + ">"
-
-    def _unknown_handler(self, data):
-        return settings.EMPTY_DATA
-
-    def isHandler(self, type):
-        return True if type in self._handlers else False
-
-    def addHandler(self, type, func):
-        if not self.isHandler(type):
-            self._handlers.update({type:func})
-            return True
-        return False
-
-    def callHandler(self, type, data):
-        if self.isHandler(type):
-            return self._handlers[type](data)
-        return {}
+import simplejson as json
 
 class jsonDocument():
 
@@ -100,8 +71,8 @@ class jsonDocument():
     def fetch(self):
         self._loadHeaders()
         if self._failed:
-            return {}
+            return json.dumps(settings.EMPTY_DATA)
 
         response = self._handlers.callHandler(self._filetype, self._response)
 
-        return response
+        return json.dumps(response)
