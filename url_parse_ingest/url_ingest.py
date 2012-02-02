@@ -2,19 +2,18 @@
 # (c) 2012 YourTrove, Inc. All Rights Reserved.
 #
 
-import settings
-import parse_handler
 import re, sys, urllib2, tempfile
 from pyPdf import PdfFileReader
 
+DEBUG = False
+EMPTY_DATA = {'title':'unknown', 'body':'unknown', 'content-length':'unknown'}
+TITLE_REGEX = re.compile("<title>(.[^<]*)</title>")
+
 def _debugPrint(message):
-    if settings.DEBUG:
+    if DEBUG:
         print >> sys.stderr, message
 
 def loadDocument(url):
-    if not settings.MASTER_HANDLER:
-        handler_setup()
-
     try:
         response = urllib2.urlopen(url)
         status = response.getcode()
@@ -22,13 +21,17 @@ def loadDocument(url):
             _debugPrint("uh-oh, status: %s" % status)
             # do the right thing
             # account for redirects and try not to loop
-            return settings.EMPTY_DATA
+            return EMPTY_DATA
     except:
         _debugPrint("error opening url %s: %s" % (url, sys.exc_info()[0]))
-        return settings.EMPTY_DATA
+        return EMPTY_DATA
 
-    headers = response.info()
-    filetype = headers.get('content-type','unknown').split(';')[0]
+    try:
+        headers = response.info()
+        filetype = headers.get('content-type','unknown').split(';')[0]
+    except:
+        _debugPrint("url_ingest.loadDocument() error loading content type header: %s"  % sys.exc_info()[0])
+        return EMPTY_DATA
 
     try:
         data = tempfile.SpooledTemporaryFile(max_size=1048576)
@@ -36,14 +39,20 @@ def loadDocument(url):
         data.seek(0)
         response.close()
     except:
-        _debugPrint("_loadData() unknown failure %s"  % sys.exc_info()[0])
-        return settings.EMPTY_DATA
+        _debugPrint("url_ingest.loadDocument() unknown failure %s"  % sys.exc_info()[0])
+        return EMPTY_DATA
 
+    response = EMPTY_DATA
     try:
-        response = settings.MASTER_HANDLER.callHandler(filetype, data)
+        if filetype == 'text/html':
+            response = parse_html(data)
+        elif filetype == 'application/pdf':
+            response = parse_pdf(data)
+        else:
+            response.update({'body':data.read()})
         data.close()
     except:
-        response = settings.EMPTY_DATA
+        _debugPrint("url_ingest.loadDocument() unknown failure %s"  % sys.exc_info()[0])
 
     return response
 
@@ -91,7 +100,7 @@ def parse_html(stream):
         return re.sub(r'<script[^>]*?>[^<]*?</script>', '', data)
 
     def get_title(data):
-        t = settings.TITLE_REGEX.search(data)
+        t = TITLE_REGEX.search(data)
         if t:
             return t.groups()[0]
         return None
@@ -101,7 +110,7 @@ def parse_html(stream):
     try:
         value = stream.read()
     except:
-        return settings.EMPTY_DATA
+        return EMPTY_DATA
 
     title = get_title(value)
     body = strip_script(value)
@@ -112,9 +121,3 @@ def parse_html(stream):
     properties.update({'body':body, 'content-length':len(body)})
 
     return properties
-
-def handler_setup():
-    if not settings.MASTER_HANDLER:
-        settings.MASTER_HANDLER = parse_handler.registeredHandlers()
-        settings.MASTER_HANDLER.addHandler("text/html", parse_html)
-        settings.MASTER_HANDLER.addHandler("application/pdf", parse_pdf)
