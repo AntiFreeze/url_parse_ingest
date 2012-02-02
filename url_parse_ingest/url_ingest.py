@@ -19,9 +19,10 @@ def loadDocument(url):
         response = urllib2.urlopen(url)
         status = response.getcode()
         if status != 200:
+            _debugPrint("uh-oh, status: %s" % status)
             # do the right thing
             # account for redirects and try not to loop
-            pass
+            return settings.EMPTY_DATA
     except:
         _debugPrint("error opening url %s: %s" % (url, sys.exc_info()[0]))
         return settings.EMPTY_DATA
