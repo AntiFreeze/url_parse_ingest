@@ -65,12 +65,47 @@ def parse_pdf(stream):
     return properties
 
 def parse_html(stream):
-    properties = {}
-    title = None
-    body = None
 
-    value = stream.read()
-    body = re.sub(r'<[^>]*?>', '', value)
+    def strip_html(data):
+        return re.sub(r'<[^>]*?>', '', data)
+
+    def strip_script_ugly(data):
+        abspos = 0
+        stripped = ""
+
+        result = re.search(r'<script', data)
+        if not result:
+            return data
+
+        while result:
+            stripped = stripped + data[abspos:abspos+result.start()]
+
+            result = re.search(r'</script>', data[abspos:])
+            if result:
+                abspos = abspos+result.end()
+                result = re.search(r'<script', data[abspos:])
+
+        return stripped
+
+    def strip_script(data):
+        return re.sub(r'<script[^>]*?>[^<]*?</script>', '', data)
+
+    def get_title(data):
+        t = settings.TITLE_REGEX.search(data)
+        if t:
+            return t.groups()[0]
+        return None
+
+    properties = {}
+
+    try:
+        value = stream.read()
+    except:
+        return settings.EMPTY_DATA
+
+    title = get_title(value)
+    body = strip_script(value)
+    body = strip_html(value)
 
     if title:
         properties.update({'title':title})
@@ -80,6 +115,6 @@ def parse_html(stream):
 
 def handler_setup():
     if not settings.MASTER_HANDLER:
-        settings.MASTER_HANDLER = parse_handler.registeredHandler()
+        settings.MASTER_HANDLER = parse_handler.registeredHandlers()
         settings.MASTER_HANDLER.addHandler("text/html", parse_html)
         settings.MASTER_HANDLER.addHandler("application/pdf", parse_pdf)
