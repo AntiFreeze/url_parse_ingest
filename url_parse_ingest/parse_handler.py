@@ -20,9 +20,13 @@ class registeredHandlers():
             message = message + " " + handler
         return message + ">"
 
-    def _unknown_handler(self, data):
+    def _unknown_handler(self, stream):
         response = settings.EMPTY_DATA
-        response.update({'body':data})
+        try:
+            body = stream.read()
+        except:
+            body = ""
+        response.update({'body':body, 'content-length':len(body)})
         return response
 
     def isHandler(self, type):
@@ -34,7 +38,7 @@ class registeredHandlers():
             return True
         return False
 
-    def callHandler(self, type, data):
+    def callHandler(self, type, stream):
         if self.isHandler(type):
-            return self._handlers[type](data)
-        return settings.EMPTY_DATA
+            return self._handlers[type](stream)
+        return self._handlers['unknown'](stream)
